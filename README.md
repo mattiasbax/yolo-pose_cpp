@@ -1,4 +1,5 @@
 # yolo-pose_cpp
+Example of running inference on yolo-pose models exported to .onnx format using onnxruntime and C++
 
 ## Dependencies
 - OpenCV 4.5.5 <
