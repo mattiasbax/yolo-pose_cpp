@@ -1,3 +1,4 @@
+#include "FrameStreamer.hpp"
 #include <chrono>
 #include <filesystem>
 #include <iostream>
@@ -83,28 +84,41 @@ class ConvNetBase
         return mInitializedModel;
     }
 
-    bool Forward( std::vector<Detection>& detections, float* frameData, int frameWidth, int frameHeight, int frameChannels )
+    bool Forward( std::vector<Detection>& detections, float* frameData, int frameWidth, int frameHeight,
+                  int frameChannels )
     {
         if ( !mInitializedModel )
             return false;
 
         auto inputSize = GetModelInputSize( );
-        if ( ( frameData == nullptr ) || ( frameWidth != inputSize.width ) || ( frameHeight != inputSize.height ) || ( frameChannels != inputSize.channels ) )
+        if ( ( frameData == nullptr ) || ( frameWidth != inputSize.width ) || ( frameHeight != inputSize.height )
+             || ( frameChannels != inputSize.channels ) )
             return false;
 
         std::vector<float> tempIn( frameData, frameData + ( frameWidth * frameHeight * frameChannels ) );
         Ort::MemoryInfo memoryInfo = Ort::MemoryInfo::CreateCpu( OrtDeviceAllocator, OrtMemTypeDefault );
-        const Ort::Value inputTensor = Ort::Value::CreateTensor<float>( memoryInfo, frameData, frameWidth * frameHeight * frameChannels, mMp.inputTensorShape.data( ), mMp.inputTensorShape.size( ) );
+        const Ort::Value inputTensor = Ort::Value::CreateTensor<float>( memoryInfo,
+                                                                        frameData,
+                                                                        frameWidth * frameHeight * frameChannels,
+                                                                        mMp.inputTensorShape.data( ),
+                                                                        mMp.inputTensorShape.size( ) );
         try {
-            std::vector<Ort::Value> outputTensors =
-                mSession.Run( Ort::RunOptions{ nullptr }, mMp.inputNodeNames.data( ), &inputTensor, mMp.numInputNodes, mMp.outputNodeNames.data( ), mMp.numOutputNodes );
+            std::vector<Ort::Value> outputTensors = mSession.Run( Ort::RunOptions{ nullptr },
+                                                                  mMp.inputNodeNames.data( ),
+                                                                  &inputTensor,
+                                                                  mMp.numInputNodes,
+                                                                  mMp.outputNodeNames.data( ),
+                                                                  mMp.numOutputNodes );
             auto typeAndShapeInfo = outputTensors.front( ).GetTensorTypeAndShapeInfo( );
             std::vector<int64_t> shape = typeAndShapeInfo.GetShape( );
             const float* outputData = outputTensors.front( ).GetTensorData<float>( );
 
             if ( outputData != nullptr ) {
                 detections.resize( shape.front( ) );
-                memcpy( detections.data( ), outputData, sizeof( float ) * std::accumulate( shape.begin( ), shape.end( ), 1, std::multiplies<float>( ) ) );
+                memcpy( detections.data( ),
+                        outputData,
+                        sizeof( float )
+                            * std::accumulate( shape.begin( ), shape.end( ), 1, std::multiplies<float>( ) ) );
             }
         } catch ( const std::exception& ) {
             return false;
@@ -115,7 +129,8 @@ class ConvNetBase
     bool DryRun( )
     {
         auto inputSize = GetModelInputSize( );
-        std::unique_ptr<float[]> dummyImage = std::make_unique<float[]>( inputSize.width * inputSize.height * inputSize.channels );
+        std::unique_ptr<float[]> dummyImage =
+            std::make_unique<float[]>( inputSize.width * inputSize.height * inputSize.channels );
         std::vector<Detection> dummyOutput;
         return Forward( dummyOutput, dummyImage.get( ), inputSize.width, inputSize.height, inputSize.channels );
     }
@@ -189,7 +204,14 @@ int main( )
 
     int size[] = { 1, 3, 640, 640 };
     cv::Mat inputBlob( 4, size, CV_32F );
-    cv::dnn::blobFromImage( inputImage, inputBlob, 0.00392156862745098, cv::Size( 640, 640 ), cv::Scalar( 0, 0, 0, 0 ), true, false, CV_32F );
+    cv::dnn::blobFromImage( inputImage,
+                            inputBlob,
+                            0.00392156862745098,
+                            cv::Size( 640, 640 ),
+                            cv::Scalar( 0, 0, 0, 0 ),
+                            true,
+                            false,
+                            CV_32F );
 
     std::vector<ConvNetBase::Detection> output;
     constexpr int numIterations = 100;
@@ -199,27 +221,31 @@ int main( )
     }
     const auto after = std::chrono::steady_clock::now( );
     std::cout << "FPS: ";
-    std::cout << 1000 / ( std::chrono::duration_cast<std::chrono::milliseconds>( after - before ).count( ) / numIterations ) << std::endl;
+    std::cout << 1000
+                     / ( std::chrono::duration_cast<std::chrono::milliseconds>( after - before ).count( )
+                         / numIterations )
+              << std::endl;
 
-    const std::vector<std::pair<ConvNetBase::Joint, ConvNetBase::Joint>> skeleton{ { ConvNetBase::Joint::leftAnkle, ConvNetBase::Joint::leftKnee },
-                                                                                   { ConvNetBase::Joint::leftKnee, ConvNetBase::Joint::leftHip },
-                                                                                   { ConvNetBase::Joint::rightAnkle, ConvNetBase::Joint::rightKnee },
-                                                                                   { ConvNetBase::Joint::rightKnee, ConvNetBase::Joint::rightHip },
-                                                                                   { ConvNetBase::Joint::leftHip, ConvNetBase::Joint::rightHip },
-                                                                                   { ConvNetBase::Joint::leftShoulder, ConvNetBase::Joint::leftHip },
-                                                                                   { ConvNetBase::Joint::rightShoulder, ConvNetBase::Joint::rightHip },
-                                                                                   { ConvNetBase::Joint::leftShoulder, ConvNetBase::Joint::rightShoulder },
-                                                                                   { ConvNetBase::Joint::leftShoulder, ConvNetBase::Joint::leftElbow },
-                                                                                   { ConvNetBase::Joint::rightShoulder, ConvNetBase::Joint::rightElbow },
-                                                                                   { ConvNetBase::Joint::leftElbow, ConvNetBase::Joint::leftWrist },
-                                                                                   { ConvNetBase::Joint::rightElbow, ConvNetBase::Joint::rightWrist },
-                                                                                   { ConvNetBase::Joint::leftEye, ConvNetBase::Joint::rightEye },
-                                                                                   { ConvNetBase::Joint::Nose, ConvNetBase::Joint::leftEye },
-                                                                                   { ConvNetBase::Joint::Nose, ConvNetBase::Joint::rightEye },
-                                                                                   { ConvNetBase::Joint::leftEye, ConvNetBase::Joint::leftEar },
-                                                                                   { ConvNetBase::Joint::rightEye, ConvNetBase::Joint::rightEar },
-                                                                                   { ConvNetBase::Joint::leftEar, ConvNetBase::Joint::leftShoulder },
-                                                                                   { ConvNetBase::Joint::rightEar, ConvNetBase::Joint::rightShoulder } };
+    const std::vector<std::pair<ConvNetBase::Joint, ConvNetBase::Joint>> skeleton{
+        { ConvNetBase::Joint::leftAnkle, ConvNetBase::Joint::leftKnee },
+        { ConvNetBase::Joint::leftKnee, ConvNetBase::Joint::leftHip },
+        { ConvNetBase::Joint::rightAnkle, ConvNetBase::Joint::rightKnee },
+        { ConvNetBase::Joint::rightKnee, ConvNetBase::Joint::rightHip },
+        { ConvNetBase::Joint::leftHip, ConvNetBase::Joint::rightHip },
+        { ConvNetBase::Joint::leftShoulder, ConvNetBase::Joint::leftHip },
+        { ConvNetBase::Joint::rightShoulder, ConvNetBase::Joint::rightHip },
+        { ConvNetBase::Joint::leftShoulder, ConvNetBase::Joint::rightShoulder },
+        { ConvNetBase::Joint::leftShoulder, ConvNetBase::Joint::leftElbow },
+        { ConvNetBase::Joint::rightShoulder, ConvNetBase::Joint::rightElbow },
+        { ConvNetBase::Joint::leftElbow, ConvNetBase::Joint::leftWrist },
+        { ConvNetBase::Joint::rightElbow, ConvNetBase::Joint::rightWrist },
+        { ConvNetBase::Joint::leftEye, ConvNetBase::Joint::rightEye },
+        { ConvNetBase::Joint::Nose, ConvNetBase::Joint::leftEye },
+        { ConvNetBase::Joint::Nose, ConvNetBase::Joint::rightEye },
+        { ConvNetBase::Joint::leftEye, ConvNetBase::Joint::leftEar },
+        { ConvNetBase::Joint::rightEye, ConvNetBase::Joint::rightEar },
+        { ConvNetBase::Joint::leftEar, ConvNetBase::Joint::leftShoulder },
+        { ConvNetBase::Joint::rightEar, ConvNetBase::Joint::rightShoulder } };
 
     for ( const auto& detection : output ) {
         const cv::Scalar colorBox = { 200, 0, 0 };      // blue
@@ -249,6 +275,16 @@ int main( )
         }
     }
 
-    cv::imshow( "result", inputImage );
-    cv::waitKey( 0 );
+    ImageStreamer imgStream( imgPath.string( ) );
+    imgStream.Initialize( );
+    imgStream.Run( );
+
+    // std::filesystem::path videoPath = __FILE__;
+    // videoPath.remove_filename( ).append( "video.mp4" );
+
+    // VideoStreamer videoStreamer( videoPath.string( ) );
+    // videoStreamer.Initialize( );
+    // videoStreamer.Run( );
+    // cv::imshow( "result", inputImage );
+    // cv::waitKey( 0 );
 }
