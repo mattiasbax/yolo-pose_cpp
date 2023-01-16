@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <functional>
+#include <iostream>
 #include <opencv2/core.hpp>
 #include <opencv2/dnn.hpp>
 #include <opencv2/highgui.hpp>
@@ -14,13 +15,15 @@
 class FrameStreamer
 {
   public:
-    FrameStreamer( int fps ) : mFps( fps ) {}
+    FrameStreamer( int fps ) : mFps( fps ), mSuppressWarnings( true ) {}
 
     virtual ~FrameStreamer( ) = default;
 
     virtual bool Initialize( ) = 0;
 
     virtual bool AcquireFrame( cv::Mat& frame ) = 0;
+
+    void ToggleWarnings( ) { mSuppressWarnings = !mSuppressWarnings; };
 
     void Run( std::function<void( const cv::Mat& inputFrame )> processFrame = nullptr )
     {
@@ -39,9 +42,9 @@ class FrameStreamer
             int processFrameTime =
                 static_cast<int>( std::chrono::duration_cast<std::chrono::milliseconds>( end - start ).count( ) );
 
-            if ( processFrameTime < ( 1000 / mFps ) ) {
-                msWaitTime = ( 1000 / mFps ) - processFrameTime;
-            } else { // TODO: Log that deadline is not met
+            msWaitTime = std::max<int>( 0, ( 1000 / mFps ) - processFrameTime );
+            if ( !mSuppressWarnings && msWaitTime == 0 ) {
+                std::cout << "Warning: Processed frame took " << processFrameTime << " ms." << std::endl;
             }
         } while ( FrameStreamer::VisualizeStream( frame, ( 1000 / mFps ) - msWaitTime ) );
     }
@@ -60,6 +63,7 @@ class FrameStreamer
 
     static constexpr std::string mWindowName = "Stream";
     const int mFps;
+    bool mSuppressWarnings;
 };
 
 class ImageStreamer : public FrameStreamer
@@ -85,7 +89,7 @@ class ImageStreamer : public FrameStreamer
     {
         if ( !mIsInitialized )
             return false;
-        frame = mImage;
+        frame = mImage.clone( );
         return true;
     }
 
@@ -147,3 +151,4 @@ class VideoStreamer : public FrameStreamer
 // TODO: Implement a CameraStreamer
 // TODO: Implement a FrameStreamerFactory
 // TODO: Split into declaration/definition
+// TODO: Add a frame counter in the image
