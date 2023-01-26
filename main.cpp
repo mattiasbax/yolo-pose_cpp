@@ -108,7 +108,8 @@ int main( )
         }
     };
 
-    std::unique_ptr<FrameStreamer> fs = std::make_unique<ImageStreamer>( imgPath.string( ), 100 );
-    fs->Initialize( );
-    fs->Run( RunPoseEstimation );
+    auto fs = CreateFrameStreamer<VideoStreamer>( videoPath.string( ), 100 );
+
+    if ( fs )
+        fs->Run( RunPoseEstimation );
 }

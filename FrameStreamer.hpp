@@ -7,6 +7,19 @@
 #include <string>
 
 // ##############################
+class FrameStreamer;
+
+template <typename T>
+std::unique_ptr<FrameStreamer> CreateFrameStreamer( const std::string fileName, int frameRate )
+{
+    // TODO: Static assert for type being a valid type (image-, video-, or camera streamer)
+    auto streamer = std::make_unique<T>( fileName, frameRate );
+
+    if ( streamer->Initialize( ) )
+        return streamer;
+    else
+        return nullptr;
+}
 
 class FrameStreamer
 {
@@ -73,7 +86,7 @@ class VideoStreamer final : public FrameStreamer
 };
 
 // TODO: Implement a CameraStreamer
-// TODO: Implement a FrameStreamerFactory
 // TODO: Split into declaration/definition
 // TODO: Add a frame counter in the image
 // TODO: Pimpl to avoid exposing cv::videoio outwards
+// TODO: Capture if trying to load image to video streamer
