@@ -2,9 +2,6 @@
 #include <chrono>
 #include <iostream>
 #include <opencv2/highgui.hpp>
-#include <opencv2/imgcodecs.hpp>
-#include <opencv2/video.hpp>
-
 
 void FrameStreamer::Run( std::function<void( const cv::Mat& inputFrame )> processFrame )
 {

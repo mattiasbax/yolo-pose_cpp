@@ -90,3 +90,4 @@ class VideoStreamer final : public FrameStreamer
 // TODO: Add a frame counter in the image
 // TODO: Pimpl to avoid exposing cv::videoio outwards
 // TODO: Capture if trying to load image to video streamer
+// TODO: Returns silently if cannot find video file

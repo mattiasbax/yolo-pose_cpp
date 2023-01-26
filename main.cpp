@@ -22,7 +22,7 @@ int main( )
     model.Initialize( modelPath.wstring( ).c_str( ), "yolo-pose" );
 
     std::filesystem::path imgPath = __FILE__;
-    imgPath.remove_filename( ).append( "img.png" );
+    imgPath.remove_filename( ).append( "data/img.png" );
     cv::Mat inputImage = cv::imread( imgPath.string( ) );
     cv::resize( inputImage, inputImage, cv::Size( 640, 640 ) ); // resize to network image size
 
@@ -48,7 +48,7 @@ int main( )
         { YoloV7Pose::Joint::rightEar, YoloV7Pose::Joint::rightShoulder } };
 
     std::filesystem::path videoPath = __FILE__;
-    videoPath.remove_filename( ).append( "video.mp4" );
+    videoPath.remove_filename( ).append( "data/video.mp4" );
 
     auto RunPoseEstimation = [ &model, &skeleton ]( const cv::Mat& frame ) {
         const int networkInputWidth = 640;
@@ -109,7 +109,6 @@ int main( )
     };
 
     auto fs = CreateFrameStreamer<VideoStreamer>( videoPath.string( ), 100 );
-
     if ( fs )
         fs->Run( RunPoseEstimation );
 }
