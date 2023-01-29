@@ -7,12 +7,21 @@
 #include <string>
 
 // ##############################
+
 class FrameStreamer;
+class ImageStreamer;
+class VideoStreamer;
+
+template <typename T, typename... Ts>
+concept IsAnyOf = ( std::same_as<T, Ts> || ... );
 
 template <typename T>
+concept IsStreamer = IsAnyOf<T, ImageStreamer, VideoStreamer>;
+
+template <typename T>
+    requires IsStreamer<T>
 std::unique_ptr<FrameStreamer> CreateFrameStreamer( const std::string fileName, int frameRate )
 {
-    // TODO: Static assert for type being a valid type (image-, video-, or camera streamer)
     auto streamer = std::make_unique<T>( fileName, frameRate );
 
     if ( streamer->Initialize( ) )
@@ -20,6 +29,8 @@ std::unique_ptr<FrameStreamer> CreateFrameStreamer( const std::string fileName, 
     else
         return nullptr;
 }
+
+// ##################################
 
 class FrameStreamer
 {
@@ -91,3 +102,4 @@ class VideoStreamer final : public FrameStreamer
 // TODO: Pimpl to avoid exposing cv::videoio outwards
 // TODO: Capture if trying to load image to video streamer
 // TODO: Returns silently if cannot find video file
+// TODO: Resize video to specified size

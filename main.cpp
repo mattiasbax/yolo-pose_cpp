@@ -48,7 +48,7 @@ int main( )
         { YoloV7Pose::Joint::rightEar, YoloV7Pose::Joint::rightShoulder } };
 
     std::filesystem::path videoPath = __FILE__;
-    videoPath.remove_filename( ).append( "data/video.mp4" );
+    videoPath.remove_filename( ).append( "data/dancer.mp4" );
 
     auto RunPoseEstimation = [ &model, &skeleton ]( const cv::Mat& frame ) {
         const int networkInputWidth = 640;
@@ -109,6 +109,7 @@ int main( )
     };
 
     auto fs = CreateFrameStreamer<VideoStreamer>( videoPath.string( ), 100 );
+
     if ( fs )
         fs->Run( RunPoseEstimation );
 }
