@@ -18,7 +18,7 @@ int main( )
     modelPath.remove_filename( ).append( "yolov7-w6-pose.onnx" );
     // modelPath.remove_filename( ).append( "Yolov5s6_pose_640.onnx" );
 
-    YoloV7Pose model;
+    PoseEstimator model;
     model.Initialize( modelPath.wstring( ).c_str( ), "yolo-pose" );
 
     std::filesystem::path imgPath = __FILE__;
@@ -26,55 +26,33 @@ int main( )
     cv::Mat inputImage = cv::imread( imgPath.string( ) );
     cv::resize( inputImage, inputImage, cv::Size( 640, 640 ) ); // resize to network image size
 
-    const std::vector<std::pair<YoloV7Pose::Joint, YoloV7Pose::Joint>> skeleton{
-        { YoloV7Pose::Joint::leftAnkle, YoloV7Pose::Joint::leftKnee },
-        { YoloV7Pose::Joint::leftKnee, YoloV7Pose::Joint::leftHip },
-        { YoloV7Pose::Joint::rightAnkle, YoloV7Pose::Joint::rightKnee },
-        { YoloV7Pose::Joint::rightKnee, YoloV7Pose::Joint::rightHip },
-        { YoloV7Pose::Joint::leftHip, YoloV7Pose::Joint::rightHip },
-        { YoloV7Pose::Joint::leftShoulder, YoloV7Pose::Joint::leftHip },
-        { YoloV7Pose::Joint::rightShoulder, YoloV7Pose::Joint::rightHip },
-        { YoloV7Pose::Joint::leftShoulder, YoloV7Pose::Joint::rightShoulder },
-        { YoloV7Pose::Joint::leftShoulder, YoloV7Pose::Joint::leftElbow },
-        { YoloV7Pose::Joint::rightShoulder, YoloV7Pose::Joint::rightElbow },
-        { YoloV7Pose::Joint::leftElbow, YoloV7Pose::Joint::leftWrist },
-        { YoloV7Pose::Joint::rightElbow, YoloV7Pose::Joint::rightWrist },
-        { YoloV7Pose::Joint::leftEye, YoloV7Pose::Joint::rightEye },
-        { YoloV7Pose::Joint::Nose, YoloV7Pose::Joint::leftEye },
-        { YoloV7Pose::Joint::Nose, YoloV7Pose::Joint::rightEye },
-        { YoloV7Pose::Joint::leftEye, YoloV7Pose::Joint::leftEar },
-        { YoloV7Pose::Joint::rightEye, YoloV7Pose::Joint::rightEar },
-        { YoloV7Pose::Joint::leftEar, YoloV7Pose::Joint::leftShoulder },
-        { YoloV7Pose::Joint::rightEar, YoloV7Pose::Joint::rightShoulder } };
-
     std::filesystem::path videoPath = __FILE__;
     videoPath.remove_filename( ).append( "data/dancer.mp4" );
 
-    auto RunPoseEstimation = [ &model, &skeleton ]( const cv::Mat& frame ) {
-        const int networkInputWidth = 640;
-        const int networkInputHeight = 640;
+    auto RunPoseEstimation = [ &model ]( const cv::Mat& frame ) {
+        const PoseEstimator::InputSize modelInputSize = model.GetModelInputSize( );
 
         const double confidenceThreshold = 0.3;
 
-        const int size[] = { 1, 3, networkInputWidth, networkInputHeight };
+        constexpr int batchSize = 1;
+        const int size[] = { batchSize, modelInputSize.channels, modelInputSize.width, modelInputSize.height };
         cv::Mat inputBlob( 4, size, CV_32F );
-        cv::dnn::blobFromImage( frame,
-                                inputBlob,
-                                0.00392156862745098,
-                                cv::Size( 640, 640 ),
-                                cv::Scalar( 0, 0, 0, 0 ),
-                                true,
-                                false,
-                                CV_32F );
+        cv::dnn::blobFromImage(
+            frame,
+            inputBlob,
+            0.00392156862745098,
+            cv::Size( modelInputSize.width, modelInputSize.height ),
+            cv::Scalar( 0, 0, 0, 0 ),
+            true,
+            false,
+            CV_32F
+        );
 
-        std::vector<YoloV7Pose::Detection> output;
-        model.Forward( output, (float*) inputBlob.data, 640, 640, 3 );
+        std::vector<PoseEstimator::Detection> output;
+        model.Forward( output, ( float* ) inputBlob.data, 640, 640, 3 );
 
-        const int frameWidth = frame.cols;
-        const int frameHeight = frame.rows;
-
-        const float wFactor = static_cast<float>( frameWidth ) / static_cast<float>( networkInputWidth );
-        const float hFactor = static_cast<float>( frameHeight ) / static_cast<float>( networkInputHeight );
+        const float wFactor = static_cast<float>( frame.cols ) / static_cast<float>( modelInputSize.width );
+        const float hFactor = static_cast<float>( frame.rows ) / static_cast<float>( modelInputSize.height );
 
         for ( const auto& detection : output ) {
             const cv::Scalar colorBox = { 200, 0, 0 };      // blue
@@ -95,20 +73,20 @@ int main( )
                 cv::circle( frame, center, 3, colorJoints, -1 );
             }
 
-            for ( const auto& edge : skeleton ) {
+            for ( const auto& edge : PoseEstimator::skeleton ) {
                 if ( detection.keyPoints[ edge.first ].score < confidenceThreshold
                      || detection.keyPoints[ edge.second ].score < confidenceThreshold )
                     continue;
-                cv::Point2f from = { detection.keyPoints[ edge.first ].x * wFactor,
-                                     detection.keyPoints[ edge.first ].y * hFactor };
-                cv::Point2f to = { detection.keyPoints[ edge.second ].x * wFactor,
-                                   detection.keyPoints[ edge.second ].y * hFactor };
+                cv::Point2f from = {
+                    detection.keyPoints[ edge.first ].x * wFactor, detection.keyPoints[ edge.first ].y * hFactor };
+                cv::Point2f to = {
+                    detection.keyPoints[ edge.second ].x * wFactor, detection.keyPoints[ edge.second ].y * hFactor };
                 cv::line( frame, from, to, colorSkeleton );
             }
         }
     };
 
-    auto fs = CreateFrameStreamer<VideoStreamer>( videoPath.string( ), 100 );
+    auto fs = CreateFrameStreamer<ImageStreamer>( imgPath.string( ), 100 );
 
     if ( fs )
         fs->Run( RunPoseEstimation );

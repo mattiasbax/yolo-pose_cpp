@@ -6,10 +6,8 @@
 #include <onnxruntime_cxx_api.h>
 #include <vector>
 
-
-class YoloV7Pose
-{
-  public:
+class PoseEstimator {
+public:
     struct InputSize {
         int width;
         int height;
@@ -29,6 +27,11 @@ class YoloV7Pose
         float x;
         float y;
         float score;
+    };
+
+    struct Detection {
+        BoundingBox box;
+        std::array<KeyPoint, 17> keyPoints;
     };
 
     enum Joint {
@@ -51,96 +54,43 @@ class YoloV7Pose
         rightAnkle = 16,
     };
 
-    struct Detection {
-        BoundingBox box;
-        std::array<KeyPoint, 17> keyPoints;
-    };
+    using JointConnection = std::pair<Joint, Joint>;
+    static constexpr std::array<JointConnection, 19> skeleton{
+        JointConnection{ Joint::leftAnkle, Joint::leftKnee },
+        JointConnection{ Joint::leftKnee, Joint::leftHip },
+        JointConnection{ Joint::rightAnkle, Joint::rightKnee },
+        JointConnection{ Joint::rightKnee, Joint::rightHip },
+        JointConnection{ Joint::leftHip, Joint::rightHip },
+        JointConnection{ Joint::leftShoulder, Joint::leftHip },
+        JointConnection{ Joint::rightShoulder, Joint::rightHip },
+        JointConnection{ Joint::leftShoulder, Joint::rightShoulder },
+        JointConnection{ Joint::leftShoulder, Joint::leftElbow },
+        JointConnection{ Joint::rightShoulder, Joint::rightElbow },
+        JointConnection{ Joint::leftElbow, Joint::leftWrist },
+        JointConnection{ Joint::rightElbow, Joint::rightWrist },
+        JointConnection{ Joint::leftEye, Joint::rightEye },
+        JointConnection{ Joint::Nose, Joint::leftEye },
+        JointConnection{ Joint::Nose, Joint::rightEye },
+        JointConnection{ Joint::leftEye, Joint::leftEar },
+        JointConnection{ Joint::rightEye, Joint::rightEar },
+        JointConnection{ Joint::leftEar, Joint::leftShoulder },
+        JointConnection{ Joint::rightEar, Joint::rightShoulder } };
 
-    YoloV7Pose( ) : mEnv( nullptr ), mSession( nullptr ), mInitializedModel( false ) {}
+    PoseEstimator( ) : mEnv( nullptr ), mSession( nullptr ), mInitializedModel( false ) { }
 
-    virtual bool Initialize( const wchar_t* const modelFilePath, const std::string& instanceName = "Model" )
-    {
-        mEnv = Ort::Env( OrtLoggingLevel::ORT_LOGGING_LEVEL_WARNING, instanceName.c_str( ) );
-        Ort::SessionOptions sessionOptions;
-        OrtCUDAProviderOptions cudaOptions;
-        cudaOptions.device_id = 0;
-        sessionOptions.AppendExecutionProvider_CUDA( cudaOptions );
-        try {
-            mSession = Ort::Session( mEnv, modelFilePath, sessionOptions );
-            mInitializedModel = true;
-            LoadModelParameters( );
-            if ( !DryRun( ) ) {
-                std::cout << "Error: DryRun did not complete successfully" << std::endl;
-                mInitializedModel = false;
-            }
-        } catch ( const std::exception& e ) {
-            std::cout << "Error: " << e.what( ) << std::endl;
-            mInitializedModel = false;
-        }
-        return mInitializedModel;
-    }
+    virtual ~PoseEstimator( ) = default;
 
-    bool Forward( std::vector<Detection>& detections, float* frameData, int frameWidth, int frameHeight,
-                  int frameChannels )
-    {
-        if ( !mInitializedModel )
-            return false;
+    bool Initialize( const wchar_t* const modelFilePath, const std::string& instanceName = "Model" );
 
-        auto inputSize = GetModelInputSize( );
-        if ( ( frameData == nullptr ) || ( frameWidth != inputSize.width ) || ( frameHeight != inputSize.height )
-             || ( frameChannels != inputSize.channels ) )
-            return false;
+    bool Forward(
+        std::vector<Detection>& detections, float* frameData, int frameWidth, int frameHeight, int frameChannels
+    );
 
-        std::vector<float> tempIn( frameData, frameData + ( frameWidth * frameHeight * frameChannels ) );
-        Ort::MemoryInfo memoryInfo = Ort::MemoryInfo::CreateCpu( OrtDeviceAllocator, OrtMemTypeDefault );
-        const Ort::Value inputTensor = Ort::Value::CreateTensor<float>( memoryInfo,
-                                                                        frameData,
-                                                                        frameWidth * frameHeight * frameChannels,
-                                                                        mMp.inputTensorShape.data( ),
-                                                                        mMp.inputTensorShape.size( ) );
-        try {
-            std::vector<Ort::Value> outputTensors = mSession.Run( Ort::RunOptions{ nullptr },
-                                                                  mMp.inputNodeNames.data( ),
-                                                                  &inputTensor,
-                                                                  mMp.numInputNodes,
-                                                                  mMp.outputNodeNames.data( ),
-                                                                  mMp.numOutputNodes );
-            auto typeAndShapeInfo = outputTensors.front( ).GetTensorTypeAndShapeInfo( );
-            std::vector<int64_t> shape = typeAndShapeInfo.GetShape( );
-            const float* outputData = outputTensors.front( ).GetTensorData<float>( );
+    bool DryRun( );
 
-            if ( outputData != nullptr ) {
-                detections.resize( shape.front( ) );
-                memcpy( detections.data( ),
-                        outputData,
-                        sizeof( float )
-                            * std::accumulate( shape.begin( ), shape.end( ), 1, std::multiplies<float>( ) ) );
-            }
-        } catch ( const std::exception& ) {
-            return false;
-        }
-        return true;
-    }
+    InputSize GetModelInputSize( ) const;
 
-    bool DryRun( )
-    {
-        auto inputSize = GetModelInputSize( );
-        std::unique_ptr<float[]> dummyImage =
-            std::make_unique<float[]>( inputSize.width * inputSize.height * inputSize.channels );
-        std::vector<Detection> dummyOutput;
-        return Forward( dummyOutput, dummyImage.get( ), inputSize.width, inputSize.height, inputSize.channels );
-    }
-
-    InputSize GetModelInputSize( ) const
-    {
-        InputSize size;
-        size.channels = static_cast<int>( mMp.inputTensorShape[ 1 ] );
-        size.width = static_cast<int>( mMp.inputTensorShape[ 2 ] );
-        size.height = static_cast<int>( mMp.inputTensorShape[ 3 ] );
-        return size;
-    }
-
-  private:
+private:
     Ort::Env mEnv;
     Ort::Session mSession;
     bool mInitializedModel;
@@ -155,23 +105,7 @@ class YoloV7Pose
         std::vector<int64_t> inputTensorShape;
     };
 
-    void LoadModelParameters( )
-    {
-        Ort::AllocatorWithDefaultOptions allocator;
-        mMp.numInputNodes = mSession.GetInputCount( );
-        for ( size_t idx = 0; idx < mMp.numInputNodes; ++idx ) {
-            mMp.inputNodeNamesAllocated.push_back( mSession.GetInputNameAllocated( idx, allocator ) );
-            mMp.inputNodeNames.push_back( mMp.inputNodeNamesAllocated.back( ).get( ) );
-        }
-
-        mMp.numOutputNodes = mSession.GetOutputCount( );
-        for ( size_t idx = 0; idx < mMp.numOutputNodes; ++idx ) {
-            mMp.outputNodeNamesAllocated.push_back( mSession.GetOutputNameAllocated( idx, allocator ) );
-            mMp.outputNodeNames.push_back( mMp.outputNodeNamesAllocated.back( ).get( ) );
-        }
-
-        mMp.inputTensorShape = mSession.GetInputTypeInfo( 0 ).GetTensorTypeAndShapeInfo( ).GetShape( );
-    }
+    void LoadModelParameters( );
 
     ModelParameters mMp;
 };

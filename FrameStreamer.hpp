@@ -32,10 +32,9 @@ std::unique_ptr<FrameStreamer> CreateFrameStreamer( const std::string fileName, 
 
 // ##################################
 
-class FrameStreamer
-{
-  public:
-    FrameStreamer( int fps ) : mFps( fps ), mSuppressWarnings( true ) {}
+class FrameStreamer {
+public:
+    FrameStreamer( int fps ) : mFps( fps ), mSuppressWarnings( true ) { }
 
     virtual ~FrameStreamer( ) = default;
 
@@ -47,7 +46,7 @@ class FrameStreamer
 
     void Run( std::function<void( const cv::Mat& inputFrame )> processFrame = nullptr );
 
-  private:
+private:
     bool VisualizeStream( const cv::Mat& frame, int msWaitTime );
 
     static constexpr std::string mWindowName = "Stream";
@@ -57,11 +56,12 @@ class FrameStreamer
 
 // ##################################
 
-class ImageStreamer final : public FrameStreamer
-{
-  public:
-    ImageStreamer( const std::string& imageFilePath, int fps = 30 )
-        : FrameStreamer( fps ), mIsInitialized( false ), mImageFilePath( imageFilePath )
+class ImageStreamer final : public FrameStreamer {
+public:
+    ImageStreamer( const std::string& imageFilePath, int fps = 30 ) :
+        FrameStreamer( fps ),
+        mIsInitialized( false ),
+        mImageFilePath( imageFilePath )
     {
     }
 
@@ -69,7 +69,7 @@ class ImageStreamer final : public FrameStreamer
 
     bool AcquireFrame( cv::Mat& frame ) override;
 
-  private:
+private:
     bool mIsInitialized;
     const std::string mImageFilePath;
     cv::Mat mImage;
@@ -77,11 +77,13 @@ class ImageStreamer final : public FrameStreamer
 
 // ##################################
 
-class VideoStreamer final : public FrameStreamer
-{
-  public:
-    VideoStreamer( const std::string& videoFilePath, int fps = 30, bool loopVideo = true )
-        : FrameStreamer( fps ), mIsInitialized( false ), mLoopVideo( loopVideo ), mVideoFilePath( videoFilePath )
+class VideoStreamer final : public FrameStreamer {
+public:
+    VideoStreamer( const std::string& videoFilePath, int fps = 30, bool loopVideo = true ) :
+        FrameStreamer( fps ),
+        mIsInitialized( false ),
+        mLoopVideo( loopVideo ),
+        mVideoFilePath( videoFilePath )
     {
     }
 
@@ -89,7 +91,7 @@ class VideoStreamer final : public FrameStreamer
 
     bool AcquireFrame( cv::Mat& frame ) override;
 
-  private:
+private:
     bool mIsInitialized;
     const std::string mVideoFilePath;
     const bool mLoopVideo;
@@ -97,7 +99,6 @@ class VideoStreamer final : public FrameStreamer
 };
 
 // TODO: Implement a CameraStreamer
-// TODO: Split into declaration/definition
 // TODO: Add a frame counter in the image
 // TODO: Pimpl to avoid exposing cv::videoio outwards
 // TODO: Capture if trying to load image to video streamer
