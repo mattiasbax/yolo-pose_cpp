@@ -1,5 +1,5 @@
-project(YoloPoseCpp)
 cmake_minimum_required(VERSION 3.23)
+project(YoloPoseCpp)
 
 find_path(ONNX_RUNTIME_SESSION_INCLUDE_DIRS onnxruntime_cxx_api.h)
 find_library(ONNX_RUNTIME_LIB onnxruntime)
@@ -24,3 +24,9 @@ target_include_directories(yolo_pose_cpp PRIVATE
 target_link_libraries(yolo_pose_cpp PRIVATE
     ${OpenCV_LIBRARIES}
     ${ONNX_RUNTIME_LIB})
+
+option(BUILD_TESTS "Build the tests" ON)
+
+if(BUILD_TESTS)
+    add_subdirectory(tests)
+endif()
