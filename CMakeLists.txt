@@ -6,8 +6,21 @@ find_library(ONNX_RUNTIME_LIB onnxruntime)
 include_directories(${OpenCV_INCLUDE_DIRS})
 find_package(OpenCV REQUIRED)
 
-add_executable(yolo_pose_cpp main.cpp FrameStreamer.cpp FrameStreamer.hpp PoseEstimator.hpp PoseEstimator.cpp)
-set_target_properties(yolo_pose_cpp PROPERTIES CXX_STANDARD 20)
+add_executable(yolo_pose_cpp
+    main.cpp
+    FrameStreamer.cpp
+    FrameStreamer.hpp
+    PoseEstimator.cpp
+    PoseEstimator.hpp
+    Logger.hpp)
 
-target_include_directories(yolo_pose_cpp PRIVATE ${OpenCV_INCLUDE_DIRS} ${ONNX_RUNTIME_SESSION_INCLUDE_DIRS})
-target_link_libraries(yolo_pose_cpp PRIVATE opencv_core opencv_dnn ${OpenCV_LIBRARIES} ${OpenCV_LIBRARIES} ${ONNX_RUNTIME_LIB})
+set_target_properties(yolo_pose_cpp PROPERTIES
+    CXX_STANDARD 20)
+
+target_include_directories(yolo_pose_cpp PRIVATE
+    ${OpenCV_INCLUDE_DIRS}
+    ${ONNX_RUNTIME_SESSION_INCLUDE_DIRS})
+
+target_link_libraries(yolo_pose_cpp PRIVATE
+    ${OpenCV_LIBRARIES}
+    ${ONNX_RUNTIME_LIB})

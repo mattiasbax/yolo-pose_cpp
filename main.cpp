@@ -1,4 +1,5 @@
 #include "FrameStreamer.hpp"
+#include "Logger.hpp"
 #include "PoseEstimator.hpp"
 
 #include <chrono>
@@ -14,6 +15,8 @@
 
 int main( )
 {
+    std::unique_ptr<Logger::ILogger> logger = std::make_unique<Logger::CoutLogger>( Logger::Priority::Info );
+
     std::filesystem::path modelPath = __FILE__;
     modelPath.remove_filename( ).append( "yolov7-w6-pose.onnx" );
     // modelPath.remove_filename( ).append( "Yolov5s6_pose_640.onnx" );
