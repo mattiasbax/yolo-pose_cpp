@@ -6,6 +6,7 @@ Example of running inference on yolo-pose models exported to .onnx format using 
 - onnxruntime 1.13 <
 - CUDA 11.6 <
 - cuDNN 8.4 <
+- TensorRT 8.6.1.6 <
 - zLib (implicit dependency from cuDNN)
 
 ## Exported onnx models:

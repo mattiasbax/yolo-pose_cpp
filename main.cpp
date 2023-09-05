@@ -15,22 +15,15 @@
 
 int main( )
 {
-    std::unique_ptr<Logger::ILogger> logger = std::make_unique<Logger::CoutLogger>( Logger::Priority::Info );
+    const std::unique_ptr<Logger::ILogger> logger = std::make_unique<Logger::CoutLogger>( Logger::Priority::Info );
 
-    std::filesystem::path modelPath = __FILE__;
-    modelPath.remove_filename( ).append( "yolov7-w6-pose.onnx" );
-    // modelPath.remove_filename( ).append( "Yolov5s6_pose_640.onnx" );
-
+    const std::string modelFile = "yolov7-w6-pose.onnx"; // "Yolov5s6_pose_640.onnx"; // "yolov7-w6-pose.onnx";
     PoseEstimator model;
-    model.Initialize( modelPath.wstring( ).c_str( ), "yolo-pose" );
-
-    std::filesystem::path imgPath = __FILE__;
-    imgPath.remove_filename( ).append( "data/img.png" );
-    cv::Mat inputImage = cv::imread( imgPath.string( ) );
-    cv::resize( inputImage, inputImage, cv::Size( 640, 640 ) ); // resize to network image size
-
-    std::filesystem::path videoPath = __FILE__;
-    videoPath.remove_filename( ).append( "data/dancer.mp4" );
+    model.Initialize(
+        std::filesystem::path( __FILE__ ).remove_filename( ).append( modelFile ).wstring( ).c_str( ),
+        PoseEstimator::RuntimeBackend::TensorRT,
+        "yolo-pose"
+    );
 
     auto RunPoseEstimation = [ &model ]( const cv::Mat& frame ) {
         const PoseEstimator::InputSize modelInputSize = model.GetModelInputSize( );
@@ -89,8 +82,25 @@ int main( )
         }
     };
 
-    auto fs = CreateFrameStreamer<ImageStreamer>( imgPath.string( ), 100 );
+    const std::string imgFile = "data/img.png";
+    const std::string videoFile = "data/dancer.mp4";
+
+    // auto fs = CreateFrameStreamer<ImageStreamer>(
+    //     std::filesystem::path( __FILE__ ).remove_filename( ).append( imgFile ).string( ), 100
+    // );
+    const auto fs = CreateFrameStreamer<VideoStreamer>(
+        std::filesystem::path( __FILE__ ).remove_filename( ).append( videoFile ).string( ), 150
+    );
 
     if ( fs )
         fs->Run( RunPoseEstimation );
 }
+
+// TODO: Fix find path for onnx
+// TODO: Proxy onnxruntime
+// TODO: Implement a CameraStreamer
+// TODO: Add a frame counter in the image
+// TODO: Pimpl to avoid exposing cv::videoio outwards
+// TODO: Capture if trying to load image to video streamer
+// TODO: Returns silently if cannot find video file
+// TODO: Resize video to specified size

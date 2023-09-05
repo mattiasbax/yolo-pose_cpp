@@ -1,12 +1,63 @@
 #include "PoseEstimator.hpp"
 
-bool PoseEstimator::Initialize( const wchar_t* const modelFilePath, const std::string& instanceName )
+namespace {
+
+bool InitializeCudaBackend( Ort::SessionOptions& sessionOptions )
+{
+    auto& ortApi = Ort::GetApi( );
+    OrtCUDAProviderOptionsV2* pCudaOptions = nullptr;
+    ortApi.CreateCUDAProviderOptions( &pCudaOptions );
+    std::unique_ptr<OrtCUDAProviderOptionsV2, decltype( ortApi.ReleaseCUDAProviderOptions )> cudaOptions(
+        pCudaOptions, ortApi.ReleaseCUDAProviderOptions
+    );
+    std::vector<const char*> keys{ "device_id", "cudnn_conv_use_max_workspace", "do_copy_in_default_stream" };
+    std::vector<const char*> values{ "0", "0", "1" };
+    ortApi.UpdateCUDAProviderOptions( cudaOptions.get( ), keys.data( ), values.data( ), keys.size( ) );
+    return nullptr == ortApi.SessionOptionsAppendExecutionProvider_CUDA_V2( sessionOptions, cudaOptions.get( ) );
+}
+
+bool InitializeTensorRTBackend( Ort::SessionOptions& sessionOptions, const std::string& engineCachePath )
+{
+    auto& ortApi = Ort::GetApi( );
+    OrtTensorRTProviderOptionsV2* pTrtOptions = nullptr;
+    ortApi.CreateTensorRTProviderOptions( &pTrtOptions );
+    std::unique_ptr<OrtTensorRTProviderOptionsV2, decltype( ortApi.ReleaseTensorRTProviderOptions )> trtOptions(
+        pTrtOptions, ortApi.ReleaseTensorRTProviderOptions
+    );
+    std::vector<const char*> trtKeys{
+        "device_id",
+        "trt_fp16_enable",
+        "trt_dla_enable",
+        "trt_dla_core",
+        "trt_engine_cache_enable",
+        "trt_engine_cache_path" };
+    std::vector<const char*> trtValues{ "0", "1", "0", "1", "1", engineCachePath.c_str( ) };
+    ortApi.UpdateTensorRTProviderOptions( trtOptions.get( ), trtKeys.data( ), trtValues.data( ), trtKeys.size( ) );
+    return nullptr == ortApi.SessionOptionsAppendExecutionProvider_TensorRT_V2( sessionOptions, trtOptions.get( ) );
+}
+
+} // namespace
+
+bool PoseEstimator::Initialize(
+    const wchar_t* const modelFilePath, RuntimeBackend backend, const std::string& instanceName
+)
 {
     mEnv = Ort::Env( OrtLoggingLevel::ORT_LOGGING_LEVEL_WARNING, instanceName.c_str( ) );
+
     Ort::SessionOptions sessionOptions;
-    OrtCUDAProviderOptions cudaOptions;
-    cudaOptions.device_id = 0;
-    sessionOptions.AppendExecutionProvider_CUDA( cudaOptions );
+    switch ( backend ) {
+    case RuntimeBackend::Cuda:
+        if ( !InitializeCudaBackend( sessionOptions ) )
+            std::cout << "Warning: Cuda backend not properly initialized" << std::endl;
+        std::cout << "Info: Cuda backend initialized" << std::endl;
+        break;
+    case RuntimeBackend::TensorRT:
+        if ( !InitializeTensorRTBackend( sessionOptions, "C:\\tmp\\" ) )
+            std::cout << "Warning: TensorRT backend not properly initialized" << std::endl;
+        std::cout << "Info: TensorRT backend initialized" << std::endl;
+        break;
+    }
+
     try {
         mSession = Ort::Session( mEnv, modelFilePath, sessionOptions );
         mInitializedModel = true;
@@ -91,6 +142,15 @@ PoseEstimator::InputSize PoseEstimator::GetModelInputSize( ) const
 }
 
 // ##########################################################################################################
+
+bool PoseEstimator::DryRun( )
+{
+    const auto inputSize = GetModelInputSize( );
+    std::unique_ptr<float[]> dummyImage =
+        std::make_unique<float[]>( inputSize.width * inputSize.height * inputSize.channels );
+    std::vector<Detection> dummyOutput;
+    return Forward( dummyOutput, dummyImage.get( ), inputSize.width, inputSize.height, inputSize.channels );
+}
 
 void PoseEstimator::LoadModelParameters( )
 {

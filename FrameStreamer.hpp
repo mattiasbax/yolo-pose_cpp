@@ -16,10 +16,9 @@ template <typename T, typename... Ts>
 concept IsAnyOf = ( std::same_as<T, Ts> || ... );
 
 template <typename T>
-concept IsStreamer = IsAnyOf<T, ImageStreamer, VideoStreamer>;
+concept Streamer = IsAnyOf<T, ImageStreamer, VideoStreamer>;
 
-template <typename T>
-    requires IsStreamer<T>
+template <Streamer T>
 std::unique_ptr<FrameStreamer> CreateFrameStreamer( const std::string fileName, int frameRate )
 {
     auto streamer = std::make_unique<T>( fileName, frameRate );
@@ -97,10 +96,3 @@ private:
     const bool mLoopVideo;
     cv::VideoCapture mCap;
 };
-
-// TODO: Implement a CameraStreamer
-// TODO: Add a frame counter in the image
-// TODO: Pimpl to avoid exposing cv::videoio outwards
-// TODO: Capture if trying to load image to video streamer
-// TODO: Returns silently if cannot find video file
-// TODO: Resize video to specified size

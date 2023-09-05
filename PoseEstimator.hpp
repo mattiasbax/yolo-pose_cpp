@@ -80,7 +80,13 @@ public:
 
     virtual ~PoseEstimator( ) = default;
 
-    bool Initialize( const wchar_t* const modelFilePath, const std::string& instanceName = "Model" );
+    enum class RuntimeBackend {
+        Cuda,
+        TensorRT
+    };
+    bool Initialize(
+        const wchar_t* const modelFilePath, RuntimeBackend backend, const std::string& instanceName = "Model"
+    );
 
     bool Forward(
         std::vector<Detection>& detections, float* frameData, int frameWidth, int frameHeight, int frameChannels
@@ -105,7 +111,9 @@ private:
         std::vector<int64_t> inputTensorShape;
     };
 
-    void LoadModelParameters( );
-
     ModelParameters mMp;
+
+    bool DryRun( );
+
+    void LoadModelParameters( );
 };
