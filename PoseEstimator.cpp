@@ -1,5 +1,7 @@
 #include "PoseEstimator.hpp"
 
+#include <chrono>
+
 namespace {
 
 bool InitializeCudaBackend( Ort::SessionOptions& sessionOptions )
@@ -123,13 +125,23 @@ bool PoseEstimator::Forward(
     return true;
 }
 
-bool PoseEstimator::DryRun( )
+float PoseEstimator::Benchmark( int numberOfIterations )
 {
-    auto inputSize = GetModelInputSize( );
+    if ( !mInitializedModel )
+        return -1.f;
+
+    const auto inputSize = GetModelInputSize( );
     std::unique_ptr<float[]> dummyImage =
         std::make_unique<float[]>( inputSize.width * inputSize.height * inputSize.channels );
-    std::vector<Detection> dummyOutput;
-    return Forward( dummyOutput, dummyImage.get( ), inputSize.width, inputSize.height, inputSize.channels );
+    std::vector<PoseEstimator::Detection> detections;
+
+    const auto start = std::chrono::high_resolution_clock::now( );
+    for ( int i = 0; i < numberOfIterations; ++i ) {
+        Forward( detections, dummyImage.get( ), inputSize.width, inputSize.height, inputSize.channels );
+    }
+    const auto end = std::chrono::high_resolution_clock::now( );
+    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>( end - start ).count( );
+    return elapsed / numberOfIterations;
 }
 
 PoseEstimator::InputSize PoseEstimator::GetModelInputSize( ) const

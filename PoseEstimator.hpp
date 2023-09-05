@@ -92,7 +92,7 @@ public:
         std::vector<Detection>& detections, float* frameData, int frameWidth, int frameHeight, int frameChannels
     );
 
-    bool DryRun( );
+    float Benchmark( int numberOfIterations );
 
     InputSize GetModelInputSize( ) const;
 
