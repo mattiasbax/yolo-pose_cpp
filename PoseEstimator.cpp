@@ -2,6 +2,8 @@
 
 #include <chrono>
 
+using namespace Logger;
+
 namespace {
 
 bool InitializeCudaBackend( Ort::SessionOptions& sessionOptions )
@@ -49,14 +51,20 @@ bool PoseEstimator::Initialize(
     Ort::SessionOptions sessionOptions;
     switch ( backend ) {
     case RuntimeBackend::Cuda:
-        if ( !InitializeCudaBackend( sessionOptions ) )
-            std::cout << "Warning: Cuda backend not properly initialized" << std::endl;
-        std::cout << "Info: Cuda backend initialized" << std::endl;
+        if ( !InitializeCudaBackend( sessionOptions ) ) {
+            mLogger->Log( Priority::Error, "Cuda backend could not be initialized" );
+            mInitializedModel = false;
+            return false;
+        }
+        mLogger->Log( Priority::Info, "Cuda backend initialized" );
         break;
     case RuntimeBackend::TensorRT:
-        if ( !InitializeTensorRTBackend( sessionOptions, "C:\\tmp\\" ) )
-            std::cout << "Warning: TensorRT backend not properly initialized" << std::endl;
-        std::cout << "Info: TensorRT backend initialized" << std::endl;
+        if ( !InitializeTensorRTBackend( sessionOptions, "C:\\tmp\\" ) ) {
+            mLogger->Log( Priority::Error, "TensorRT backend could not be initialized" );
+            mInitializedModel = false;
+            return false;
+        }
+        mLogger->Log( Priority::Info, "TensorRT backend initialized" );
         break;
     }
 
@@ -65,14 +73,19 @@ bool PoseEstimator::Initialize(
         mInitializedModel = true;
         LoadModelParameters( );
         if ( !DryRun( ) ) {
-            std::cout << "Error: DryRun did not complete successfully" << std::endl;
+            mLogger->Log( Priority::Error, "DryRun did not complete successfully" );
             mInitializedModel = false;
+            return mInitializedModel;
         }
     }
     catch ( const std::exception& e ) {
-        std::cout << "Error: " << e.what( ) << std::endl;
+        mLogger->Log( Priority::Error, e.what( ) );
         mInitializedModel = false;
+        return mInitializedModel;
     }
+
+    mLogger->Log( Priority::Info, "Initialized successfully" );
+    mInitializedModel = true;
     return mInitializedModel;
 }
 
@@ -80,13 +93,17 @@ bool PoseEstimator::Forward(
     std::vector<Detection>& detections, float* frameData, int frameWidth, int frameHeight, int frameChannels
 )
 {
-    if ( !mInitializedModel )
+    if ( !mInitializedModel ) {
+        mLogger->Log( Priority::Warning, "Running forward propagation on an uninitialized model" );
         return false;
+    }
 
     auto inputSize = GetModelInputSize( );
     if ( ( frameData == nullptr ) || ( frameWidth != inputSize.width ) || ( frameHeight != inputSize.height )
-         || ( frameChannels != inputSize.channels ) )
+         || ( frameChannels != inputSize.channels ) ) {
+        mLogger->Log( Priority::Error, "Invalid input frame" );
         return false;
+    }
 
     std::vector<float> tempIn( frameData, frameData + ( frameWidth * frameHeight * frameChannels ) );
     Ort::MemoryInfo memoryInfo = Ort::MemoryInfo::CreateCpu( OrtDeviceAllocator, OrtMemTypeDefault );
@@ -119,7 +136,8 @@ bool PoseEstimator::Forward(
             );
         }
     }
-    catch ( const std::exception& ) {
+    catch ( const std::exception& e ) {
+        mLogger->Log( Priority::Error, e.what( ) );
         return false;
     }
     return true;
@@ -127,8 +145,10 @@ bool PoseEstimator::Forward(
 
 float PoseEstimator::Benchmark( int numberOfIterations )
 {
-    if ( !mInitializedModel )
+    if ( !mInitializedModel ) {
+        mLogger->Log( Priority::Warning, "Benchmarking on an uninitialized model" );
         return -1.f;
+    }
 
     const auto inputSize = GetModelInputSize( );
     std::unique_ptr<float[]> dummyImage =

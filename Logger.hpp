@@ -2,6 +2,7 @@
 
 #include <format>
 #include <iostream>
+#include <source_location>
 #include <string>
 
 namespace Logger {
@@ -25,7 +26,9 @@ public:
 
     void SetVerbosity( Priority verbosity ) { mVerbosity = verbosity; }
 
-    virtual void Log( Priority prio, const std::string& msg ) const = 0;
+    virtual void Log(
+        Priority prio, const std::string& msg, const std::source_location& sl = std::source_location::current( )
+    ) const = 0;
 
 protected:
     Priority mVerbosity;
@@ -37,7 +40,8 @@ public:
 
     CoutLogger( Priority verbosity ) : ILogger( verbosity ) { }
 
-    void Log( Priority prio, const std::string& msg ) const override
+    void Log( Priority prio, const std::string& msg, const std::source_location& sl = std::source_location::current( ) )
+        const override
     {
         if ( prio < mVerbosity )
             return;
@@ -66,7 +70,7 @@ public:
             break;
         }
 
-        std::cout << std::format( "{}:{} {} {}\n", __FILE__, __LINE__, prioString, msg );
+        std::cout << std::format( "{}:{} {} {}\n", sl.file_name( ), sl.line( ), prioString, msg );
     }
 };
 } // namespace Logger

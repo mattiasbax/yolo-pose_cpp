@@ -1,7 +1,8 @@
 #pragma once
 
+#include "Logger.hpp"
+
 #include <array>
-#include <iostream>
 #include <numeric>
 #include <onnxruntime_cxx_api.h>
 #include <vector>
@@ -76,9 +77,15 @@ public:
         JointConnection{ Joint::leftEar, Joint::leftShoulder },
         JointConnection{ Joint::rightEar, Joint::rightShoulder } };
 
-    PoseEstimator( ) : mEnv( nullptr ), mSession( nullptr ), mInitializedModel( false ) { }
+    PoseEstimator( std::unique_ptr<Logger::ILogger> logger ) :
+        mEnv( nullptr ),
+        mSession( nullptr ),
+        mInitializedModel( false ),
+        mLogger( std::move( logger ) )
+    {
+    }
 
-    virtual ~PoseEstimator( ) = default;
+    ~PoseEstimator( ) = default;
 
     enum class RuntimeBackend {
         Cuda,
@@ -112,6 +119,7 @@ private:
     };
 
     ModelParameters mMp;
+    std::unique_ptr<Logger::ILogger> mLogger;
 
     bool DryRun( );
 

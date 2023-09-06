@@ -9,16 +9,14 @@
 
 #include <opencv2/core.hpp>
 #include <opencv2/dnn.hpp>
-#include <opencv2/highgui.hpp>
-#include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 
 int main( )
 {
-    const std::unique_ptr<Logger::ILogger> logger = std::make_unique<Logger::CoutLogger>( Logger::Priority::Info );
+    std::unique_ptr<Logger::ILogger> logger = std::make_unique<Logger::CoutLogger>( Logger::Priority::Info );
 
+    PoseEstimator model( std::move( logger ) );
     const std::string modelFile = "yolov7-w6-pose.onnx"; // "Yolov5s6_pose_640.onnx"; // "yolov7-w6-pose.onnx";
-    PoseEstimator model;
     model.Initialize(
         std::filesystem::path( __FILE__ ).remove_filename( ).append( modelFile ).wstring( ).c_str( ),
         PoseEstimator::RuntimeBackend::TensorRT,
@@ -100,7 +98,7 @@ int main( )
 // TODO: Proxy onnxruntime
 // TODO: Implement a CameraStreamer
 // TODO: Add a frame counter in the image
-// TODO: Pimpl to avoid exposing cv::videoio outwards
+// TODO: Pimpl to avoid exposing cv::videoio outwards (and ort api from pose estimator)
 // TODO: Capture if trying to load image to video streamer
 // TODO: Returns silently if cannot find video file
 // TODO: Resize video to specified size
