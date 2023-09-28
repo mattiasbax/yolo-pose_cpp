@@ -80,14 +80,15 @@ int main( )
         }
     };
 
-    const std::string imgFile = "data/img.png";
-    const std::string videoFile = "data/dancer.mp4";
+    // const std::string imgFile = "data/img.png";
 
     // auto fs = CreateFrameStreamer<ImageStreamer>(
     //     std::filesystem::path( __FILE__ ).remove_filename( ).append( imgFile ).string( ), 100
     // );
+
+    const std::string videoFile = "data/dancer.mp4";
     const auto fs = CreateFrameStreamer<VideoStreamer>(
-        std::filesystem::path( __FILE__ ).remove_filename( ).append( videoFile ).string( ), 150
+        std::filesystem::path( __FILE__ ).remove_filename( ).append( videoFile ).string( )
     );
 
     if ( fs )
@@ -102,3 +103,4 @@ int main( )
 // TODO: Capture if trying to load image to video streamer
 // TODO: Returns silently if cannot find video file
 // TODO: Resize video to specified size
+// TODO: Pause & step video

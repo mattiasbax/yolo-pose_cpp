@@ -19,9 +19,9 @@ template <typename T>
 concept Streamer = IsAnyOf<T, ImageStreamer, VideoStreamer>;
 
 template <Streamer T>
-std::unique_ptr<FrameStreamer> CreateFrameStreamer( const std::string fileName, int frameRate )
+std::unique_ptr<FrameStreamer> CreateFrameStreamer( const std::string fileName )
 {
-    auto streamer = std::make_unique<T>( fileName, frameRate );
+    auto streamer = std::make_unique<T>( fileName );
 
     if ( streamer->Initialize( ) )
         return streamer;
@@ -33,7 +33,7 @@ std::unique_ptr<FrameStreamer> CreateFrameStreamer( const std::string fileName, 
 
 class FrameStreamer {
 public:
-    FrameStreamer( int fps ) : mFps( fps ), mSuppressWarnings( true ) { }
+    FrameStreamer( ) : mFps( 0. ) { }
 
     virtual ~FrameStreamer( ) = default;
 
@@ -41,28 +41,21 @@ public:
 
     virtual bool AcquireFrame( cv::Mat& frame ) = 0;
 
-    void ToggleWarnings( ) { mSuppressWarnings = !mSuppressWarnings; };
-
     void Run( std::function<void( const cv::Mat& inputFrame )> processFrame = nullptr );
 
 private:
     bool VisualizeStream( const cv::Mat& frame, int msWaitTime );
-
     static constexpr std::string mWindowName = "Stream";
-    const int mFps;
-    bool mSuppressWarnings;
+
+protected:
+    float mFps;
 };
 
 // ##################################
 
 class ImageStreamer final : public FrameStreamer {
 public:
-    ImageStreamer( const std::string& imageFilePath, int fps = 30 ) :
-        FrameStreamer( fps ),
-        mIsInitialized( false ),
-        mImageFilePath( imageFilePath )
-    {
-    }
+    ImageStreamer( const std::string& imageFilePath ) : mIsInitialized( false ), mImageFilePath( imageFilePath ) { }
 
     bool Initialize( ) override;
 
@@ -78,10 +71,9 @@ private:
 
 class VideoStreamer final : public FrameStreamer {
 public:
-    VideoStreamer( const std::string& videoFilePath, int fps = 30, bool loopVideo = true ) :
-        FrameStreamer( fps ),
+    VideoStreamer( const std::string& videoFilePath ) :
         mIsInitialized( false ),
-        mLoopVideo( loopVideo ),
+        mLoopVideo( true ),
         mVideoFilePath( videoFilePath )
     {
     }

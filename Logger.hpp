@@ -47,23 +47,24 @@ public:
             return;
 
         std::string prioString;
+        using enum Priority;
         switch ( prio ) {
-        case Priority::Debug:
+        case Debug:
             prioString = "[DEBUG]";
             break;
-        case Priority::Info:
+        case Info:
             prioString = "[INFO]";
             break;
-        case Priority::Warning:
+        case Warning:
             prioString = "[WARNING]";
             break;
-        case Priority::Error:
+        case Error:
             prioString = "[ERROR]";
             break;
-        case Priority::Critical:
+        case Critical:
             prioString = "[CRITICAL]";
             break;
-        case Priority::Fatal:
+        case Fatal:
             prioString = "[FATAL]";
             break;
         default:

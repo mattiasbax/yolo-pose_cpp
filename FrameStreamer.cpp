@@ -8,35 +8,26 @@ void FrameStreamer::Run( std::function<void( const cv::Mat& inputFrame )> proces
     cv::Mat frame;
     int msWaitTime = 0;
     int processFrameTime = 0;
-    do {
-        if ( !AcquireFrame( frame ) )
-            break;
 
-        const auto start = std::chrono::high_resolution_clock::now( );
+    const long long waitTime = 1 / ( mFps / 1000000.0 );
+    const auto runStart = std::chrono::high_resolution_clock::now( );
+
+    int count = 0;
+    int keyPressed = 0;
+    while ( AcquireFrame( frame ) && !( keyPressed == 'q' || keyPressed == 'Q' ) ) {
+        // * DO WORK HERE *
         if ( processFrame ) {
+            const auto processStart = std::chrono::high_resolution_clock::now( );
             processFrame( frame );
+            const auto processEnd = std::chrono::high_resolution_clock::now( );
+            int processDuration = duration_cast<std::chrono::microseconds>( processEnd - processStart ).count( );
         }
-        const auto end = std::chrono::high_resolution_clock::now( );
-        int processFrameTime =
-            static_cast<int>( std::chrono::duration_cast<std::chrono::milliseconds>( end - start ).count( ) );
 
-        msWaitTime = std::max<int>( 0, ( 1000 / mFps ) - processFrameTime );
-        if ( !mSuppressWarnings && msWaitTime == 0 ) {
-            std::cout << "Warning: Processed frame took " << processFrameTime << " ms." << std::endl;
-        }
-    } while ( FrameStreamer::VisualizeStream(
-        frame, ( 1000 / mFps ) - msWaitTime ) ); // TODO: Make a thread running at specified FPS
-}
+        std::this_thread::sleep_until( runStart + ( ++count * std::chrono::microseconds( waitTime ) ) );
 
-bool FrameStreamer::VisualizeStream( const cv::Mat& frame, int msWaitTime ) // TODO: Move to ano namespace
-{
-    if ( frame.empty( ) )
-        return false;
-    cv::imshow( mWindowName, frame );
-    const int keyPressed = cv::waitKey( 1000 / mFps );
-    if ( keyPressed == 'q' || keyPressed == 'Q' )
-        return false;
-    return true;
+        cv::imshow( mWindowName, frame );
+        keyPressed = cv::waitKey( 1 );
+    }
 }
 
 // ##################################
@@ -46,7 +37,9 @@ bool ImageStreamer::Initialize( )
     try {
         mImage = cv::imread( mImageFilePath );
         mIsInitialized = true;
-    } catch ( const std::exception& ) {
+        mFps = 30.f;
+    }
+    catch ( const std::exception& ) {
         mIsInitialized = false;
     }
     return mIsInitialized;
@@ -67,7 +60,11 @@ bool VideoStreamer::Initialize( )
     try {
         mCap = cv::VideoCapture( mVideoFilePath );
         mIsInitialized = mCap.isOpened( );
-    } catch ( const std::exception& ) {
+        if ( mIsInitialized ) {
+            mFps = mCap.get( cv::CAP_PROP_FPS );
+        }
+    }
+    catch ( const std::exception& ) {
         mIsInitialized = false;
     }
     return mIsInitialized;
@@ -83,7 +80,8 @@ bool VideoStreamer::AcquireFrame( cv::Mat& frame )
         if ( mLoopVideo ) {
             mCap.set( cv::CAP_PROP_POS_FRAMES, 0 );
             mCap >> frame;
-        } else
+        }
+        else
             return false;
     }
     return true;
