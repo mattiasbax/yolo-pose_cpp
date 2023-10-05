@@ -4,8 +4,9 @@
 
 #include <array>
 #include <numeric>
-#include <onnxruntime_cxx_api.h>
 #include <vector>
+
+#include <onnxruntime_cxx_api.h>
 
 class PoseEstimator {
 public:

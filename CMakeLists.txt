@@ -8,6 +8,8 @@ find_package(OpenCV REQUIRED)
 
 add_executable(yolo_pose_cpp
     main.cpp
+    DrawUtils.cpp
+    DrawUtils.hpp
     FrameStreamer.cpp
     FrameStreamer.hpp
     PoseEstimator.cpp

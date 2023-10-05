@@ -1,10 +1,13 @@
 #pragma once
 
+#include "DrawUtils.hpp"
+#include "PoseEstimator.hpp"
+
 #include <functional>
+#include <string>
+
 #include <opencv2/core.hpp>
 #include <opencv2/videoio.hpp>
-
-#include <string>
 
 // ##############################
 
@@ -41,7 +44,13 @@ public:
 
     virtual bool AcquireFrame( cv::Mat& frame ) = 0;
 
-    void Run( std::function<void( const cv::Mat& inputFrame )> processFrame = nullptr );
+    // TODO: Make the result type more generic and not pose estimation dependant
+    struct Result {
+        std::vector<PoseEstimator::Detection> modelOutput;
+        DrawUtils::ScaleFactor scaleFactor;
+    };
+
+    void Run( std::function<Result( const cv::Mat& inputFrame )> processFrame = nullptr );
 
 private:
     bool VisualizeStream( const cv::Mat& frame, int msWaitTime );
