@@ -7,42 +7,103 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 
-void FrameStreamer::Run( std::function<Result( const cv::Mat& inputFrame )> processFrame )
+namespace {
+
+void ProcessFrame(
+    cv::Mat& frame, FrameStreamer::FrameProcessFunction f, std::future<FrameStreamer::Result>& processResult
+)
+{
+    if ( f && !processResult.valid( ) ) {
+        processResult = std::async(
+            std::launch::async, f, frame
+        ); // TODO: Need to ensure that frame is not overwritten before processed
+    }
+}
+
+bool GetProcessedFrameResult(
+    FrameStreamer::Result& result,
+    FrameStreamer::FrameProcessFunction f,
+    std::future<FrameStreamer::Result>& processResult
+)
 {
     using namespace std::chrono_literals;
+    if ( f ) {
+        if ( processResult.valid( ) && processResult.wait_for( 0ms ) == std::future_status::ready ) {
+            result = processResult.get( );
+            return true;
+        }
+    }
+    return false;
+}
+
+} // namespace
+
+void FrameStreamer::Run( FrameProcessFunction f )
+{
+    enum class State {
+        Running,
+        Paused
+    };
+
+    using namespace std::chrono_literals;
+    using enum State;
 
     cv::Mat frame;
-    int msWaitTime = 0;
-    int processFrameTime = 0;
-
-    const long long waitTime = 1 / ( mFps / 1000000.0 );
-    const auto runStart = std::chrono::high_resolution_clock::now( );
+    cv::Mat poseFrame;
 
     int count = 0;
     int keyPressed = 0;
 
-    std::future<Result> modelOutput;
+    std::future<Result> processResult;
     Result mostRecentResult;
-    while ( AcquireFrame( frame ) && !( keyPressed == 'q' || keyPressed == 'Q' ) ) {
-        auto nextTick = runStart + ( ++count * std::chrono::microseconds( waitTime ) );
 
-        if ( processFrame ) {
-            if ( !modelOutput.valid( ) ) {
-                // TODO: std::async introduces too much overhead. Switch to a pure jthread solution
-                modelOutput = std::async( std::launch::async, processFrame, frame );
+    State s = Running;
+    const long long waitTime = 1 / ( mFps / 1000000.0 );
+    const auto runStart = std::chrono::high_resolution_clock::now( );
+
+    while ( !( keyPressed == 'q' || keyPressed == 'Q' ) ) {
+        auto nextTick = runStart + ( ++count * std::chrono::microseconds( waitTime ) );
+        switch ( s ) {
+        case Running:
+            if ( keyPressed == 'p' || keyPressed == 'P' ) {
+                s = Paused;
+                break;
             }
+            if ( !AcquireNextFrame( frame ) )
+                return;
+            ProcessFrame( frame, f, processResult );
+            break;
+        case Paused:
+            if ( keyPressed == 'r' || keyPressed == 'R' ) {
+                s = Running;
+            }
+            else if ( keyPressed == 'f' || keyPressed == 'F' ) {
+                if ( !AcquireNextFrame( frame ) )
+                    return;
+                ProcessFrame( frame, f, processResult );
+            }
+            else if ( keyPressed == 'b' || keyPressed == 'B' ) {
+                if ( !AcquirePreviousFrame( frame ) )
+                    return;
+                ProcessFrame( frame, f, processResult );
+            }
+            break;
         }
 
         std::this_thread::sleep_until( nextTick );
 
-        if ( processFrame ) {
-            if ( modelOutput.wait_for( 0s ) == std::future_status::ready ) {
-                mostRecentResult = modelOutput.get( );
-            }
-            DrawUtils::DrawPosesInFrame( frame, mostRecentResult.modelOutput, mostRecentResult.scaleFactor );
+        if ( GetProcessedFrameResult( mostRecentResult, f, processResult ) ) {
+            poseFrame = DrawUtils::DrawPosesInFrame(
+                frame.size( ), frame.type( ), mostRecentResult.modelOutput, mostRecentResult.scaleFactor
+            );
         }
 
-        cv::imshow( mWindowName, frame );
+        if ( !poseFrame.empty( ) ) {
+            cv::imshow( mWindowName, frame + poseFrame );
+        }
+        else {
+            cv::imshow( mWindowName, frame );
+        }
         keyPressed = cv::waitKey( 1 );
     }
 }
@@ -55,6 +116,7 @@ bool ImageStreamer::Initialize( )
         mImage = cv::imread( mImageFilePath );
         mIsInitialized = true;
         mFps = 30.f;
+        mNumberOfFrames = 1;
     }
     catch ( const std::exception& ) {
         mIsInitialized = false;
@@ -62,12 +124,18 @@ bool ImageStreamer::Initialize( )
     return mIsInitialized;
 }
 
-bool ImageStreamer::AcquireFrame( cv::Mat& frame )
+bool ImageStreamer::AcquireNextFrame( cv::Mat& frame )
 {
     if ( !mIsInitialized )
         return false;
     frame = mImage.clone( );
     return true;
+}
+
+bool ImageStreamer::AcquirePreviousFrame( cv::Mat& frame )
+{
+    // * There are no 'previous' frames in an image stream
+    return AcquireNextFrame( frame );
 }
 
 // ##################################
@@ -79,6 +147,7 @@ bool VideoStreamer::Initialize( )
         mIsInitialized = mCap.isOpened( );
         if ( mIsInitialized ) {
             mFps = mCap.get( cv::CAP_PROP_FPS );
+            mNumberOfFrames = mCap.get( cv::CAP_PROP_FRAME_COUNT );
         }
     }
     catch ( const std::exception& ) {
@@ -87,19 +156,33 @@ bool VideoStreamer::Initialize( )
     return mIsInitialized;
 }
 
-bool VideoStreamer::AcquireFrame( cv::Mat& frame )
+bool VideoStreamer::AcquireNextFrame( cv::Mat& frame )
 {
     if ( !mIsInitialized )
         return false;
 
-    mCap >> frame;
-    if ( frame.empty( ) ) {
-        if ( mLoopVideo ) {
+    if ( mLoopVideo ) {
+        const int currentFrame = mCap.get( cv::CAP_PROP_POS_FRAMES );
+        if ( currentFrame >= mNumberOfFrames ) {
             mCap.set( cv::CAP_PROP_POS_FRAMES, 0 );
-            mCap >> frame;
         }
-        else
-            return false;
     }
-    return true;
+    mCap >> frame;
+    return !frame.empty( );
+}
+
+bool VideoStreamer::AcquirePreviousFrame( cv::Mat& frame )
+{
+    if ( !mIsInitialized )
+        return false;
+
+    const int currentFrame = mCap.get( cv::CAP_PROP_POS_FRAMES );
+    if ( currentFrame != 0 ) {
+        mCap.set( cv::CAP_PROP_POS_FRAMES, currentFrame - 2 );
+    }
+    else {
+        mCap.set( cv::CAP_PROP_POS_FRAMES, mNumberOfFrames );
+    }
+    mCap >> frame;
+    return !frame.empty( );
 }

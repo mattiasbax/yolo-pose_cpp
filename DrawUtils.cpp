@@ -4,12 +4,16 @@
 
 namespace DrawUtils {
 
-void DrawPosesInFrame(
-    const cv::Mat& frame, const std::vector<PoseEstimator::Detection>& detections, const ScaleFactor& scaleFactor
+cv::Mat DrawPosesInFrame(
+    const cv::Size& frameSize,
+    int frameType,
+    const std::vector<PoseEstimator::Detection>& detections,
+    const ScaleFactor& scaleFactor
 )
 {
+    cv::Mat frame = cv::Mat::zeros( frameSize, frameType );
     if ( detections.empty( ) )
-        return;
+        return frame;
 
     const double confidenceThreshold = 0.3;
 
@@ -45,6 +49,8 @@ void DrawPosesInFrame(
             cv::line( frame, from, to, colorSkeleton );
         }
     }
+
+    return frame;
 }
 
 } // namespace DrawUtils

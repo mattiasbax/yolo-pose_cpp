@@ -13,8 +13,9 @@ struct ScaleFactor {
     float hFactor;
 };
 
-void DrawPosesInFrame(
-    const cv::Mat& frame,
+cv::Mat DrawPosesInFrame(
+    const cv::Size& frameSize,
+    int frameType,
     const std::vector<PoseEstimator::Detection>& detections,
     const ScaleFactor& scaleFactor = { .wFactor = 1.f, .hFactor = 1.f }
 );

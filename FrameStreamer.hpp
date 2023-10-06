@@ -36,13 +36,11 @@ std::unique_ptr<FrameStreamer> CreateFrameStreamer( const std::string fileName )
 
 class FrameStreamer {
 public:
-    FrameStreamer( ) : mFps( 0. ) { }
+    FrameStreamer( ) : mFps( 0. ), mNumberOfFrames( 0 ) { }
 
     virtual ~FrameStreamer( ) = default;
 
     virtual bool Initialize( ) = 0;
-
-    virtual bool AcquireFrame( cv::Mat& frame ) = 0;
 
     // TODO: Make the result type more generic and not pose estimation dependant
     struct Result {
@@ -50,14 +48,19 @@ public:
         DrawUtils::ScaleFactor scaleFactor;
     };
 
-    void Run( std::function<Result( const cv::Mat& inputFrame )> processFrame = nullptr );
-
-private:
-    bool VisualizeStream( const cv::Mat& frame, int msWaitTime );
-    static constexpr std::string mWindowName = "Stream";
+    using FrameProcessFunction = std::function<Result( const cv::Mat& inputFrame )>;
+    void Run( FrameProcessFunction f = nullptr );
 
 protected:
     float mFps;
+    int mNumberOfFrames;
+
+private:
+    virtual bool AcquireNextFrame( cv::Mat& frame ) = 0;
+
+    virtual bool AcquirePreviousFrame( cv::Mat& frame ) = 0;
+
+    static constexpr std::string mWindowName = "Stream";
 };
 
 // ##################################
@@ -68,7 +71,9 @@ public:
 
     bool Initialize( ) override;
 
-    bool AcquireFrame( cv::Mat& frame ) override;
+    bool AcquireNextFrame( cv::Mat& frame ) override;
+
+    bool AcquirePreviousFrame( cv::Mat& frame ) override;
 
 private:
     bool mIsInitialized;
@@ -89,7 +94,9 @@ public:
 
     bool Initialize( ) override;
 
-    bool AcquireFrame( cv::Mat& frame ) override;
+    bool AcquireNextFrame( cv::Mat& frame ) override;
+
+    bool AcquirePreviousFrame( cv::Mat& frame ) override;
 
 private:
     bool mIsInitialized;
