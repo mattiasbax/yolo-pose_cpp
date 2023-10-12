@@ -50,6 +50,7 @@ void FrameStreamer::Run( FrameProcessFunction f )
 
     cv::Mat frame;
     cv::Mat poseFrame;
+    int frameNumber = -1;
 
     int count = 0;
     int keyPressed = 0;
@@ -69,7 +70,8 @@ void FrameStreamer::Run( FrameProcessFunction f )
                 s = Paused;
                 break;
             }
-            if ( !AcquireNextFrame( frame ) )
+            frameNumber = AcquireNextFrame( frame );
+            if ( frameNumber < 0 )
                 return;
             ProcessFrame( frame, f, processResult );
             break;
@@ -78,12 +80,14 @@ void FrameStreamer::Run( FrameProcessFunction f )
                 s = Running;
             }
             else if ( keyPressed == 'f' || keyPressed == 'F' ) {
-                if ( !AcquireNextFrame( frame ) )
+                frameNumber = AcquireNextFrame( frame );
+                if ( frameNumber < 0 )
                     return;
                 ProcessFrame( frame, f, processResult );
             }
             else if ( keyPressed == 'b' || keyPressed == 'B' ) {
-                if ( !AcquirePreviousFrame( frame ) )
+                frameNumber = AcquirePreviousFrame( frame );
+                if ( frameNumber < 0 )
                     return;
                 ProcessFrame( frame, f, processResult );
             }
@@ -98,6 +102,7 @@ void FrameStreamer::Run( FrameProcessFunction f )
             );
         }
 
+        // ! Draw framenumber in fram here
         if ( !poseFrame.empty( ) ) {
             cv::imshow( mWindowName, frame + poseFrame );
         }
@@ -124,15 +129,15 @@ bool ImageStreamer::Initialize( )
     return mIsInitialized;
 }
 
-bool ImageStreamer::AcquireNextFrame( cv::Mat& frame )
+int ImageStreamer::AcquireNextFrame( cv::Mat& frame )
 {
     if ( !mIsInitialized )
-        return false;
+        return -1;
     frame = mImage.clone( );
-    return true;
+    return 1;
 }
 
-bool ImageStreamer::AcquirePreviousFrame( cv::Mat& frame )
+int ImageStreamer::AcquirePreviousFrame( cv::Mat& frame )
 {
     // * There are no 'previous' frames in an image stream
     return AcquireNextFrame( frame );
@@ -156,22 +161,22 @@ bool VideoStreamer::Initialize( )
     return mIsInitialized;
 }
 
-bool VideoStreamer::AcquireNextFrame( cv::Mat& frame )
+int VideoStreamer::AcquireNextFrame( cv::Mat& frame )
 {
     if ( !mIsInitialized )
         return false;
 
+    const int currentFrame = mCap.get( cv::CAP_PROP_POS_FRAMES );
     if ( mLoopVideo ) {
-        const int currentFrame = mCap.get( cv::CAP_PROP_POS_FRAMES );
         if ( currentFrame >= mNumberOfFrames ) {
             mCap.set( cv::CAP_PROP_POS_FRAMES, 0 );
         }
     }
     mCap >> frame;
-    return !frame.empty( );
+    return frame.empty( ) ? -1 : currentFrame;
 }
 
-bool VideoStreamer::AcquirePreviousFrame( cv::Mat& frame )
+int VideoStreamer::AcquirePreviousFrame( cv::Mat& frame )
 {
     if ( !mIsInitialized )
         return false;
@@ -184,5 +189,5 @@ bool VideoStreamer::AcquirePreviousFrame( cv::Mat& frame )
         mCap.set( cv::CAP_PROP_POS_FRAMES, mNumberOfFrames );
     }
     mCap >> frame;
-    return !frame.empty( );
+    return frame.empty( ) ? -1 : currentFrame;
 }

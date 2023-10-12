@@ -9,7 +9,7 @@
 #include <opencv2/core.hpp>
 #include <opencv2/videoio.hpp>
 
-// ##############################
+// ####################################################################################################################
 
 class FrameStreamer;
 class ImageStreamer;
@@ -32,7 +32,7 @@ std::unique_ptr<FrameStreamer> CreateFrameStreamer( const std::string fileName )
         return nullptr;
 }
 
-// ##################################
+// ####################################################################################################################
 
 class FrameStreamer {
 public:
@@ -56,14 +56,14 @@ protected:
     int mNumberOfFrames;
 
 private:
-    virtual bool AcquireNextFrame( cv::Mat& frame ) = 0;
+    virtual int AcquireNextFrame( cv::Mat& frame ) = 0;
 
-    virtual bool AcquirePreviousFrame( cv::Mat& frame ) = 0;
+    virtual int AcquirePreviousFrame( cv::Mat& frame ) = 0;
 
     static constexpr std::string mWindowName = "Stream";
 };
 
-// ##################################
+// ####################################################################################################################
 
 class ImageStreamer final : public FrameStreamer {
 public:
@@ -71,9 +71,9 @@ public:
 
     bool Initialize( ) override;
 
-    bool AcquireNextFrame( cv::Mat& frame ) override;
+    int AcquireNextFrame( cv::Mat& frame ) override;
 
-    bool AcquirePreviousFrame( cv::Mat& frame ) override;
+    int AcquirePreviousFrame( cv::Mat& frame ) override;
 
 private:
     bool mIsInitialized;
@@ -81,7 +81,7 @@ private:
     cv::Mat mImage;
 };
 
-// ##################################
+// ####################################################################################################################
 
 class VideoStreamer final : public FrameStreamer {
 public:
@@ -94,9 +94,9 @@ public:
 
     bool Initialize( ) override;
 
-    bool AcquireNextFrame( cv::Mat& frame ) override;
+    int AcquireNextFrame( cv::Mat& frame ) override;
 
-    bool AcquirePreviousFrame( cv::Mat& frame ) override;
+    int AcquirePreviousFrame( cv::Mat& frame ) override;
 
 private:
     bool mIsInitialized;
