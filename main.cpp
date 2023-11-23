@@ -63,6 +63,7 @@ int main( )
         fs->Run( RunPoseEstimation );
 }
 
+// TODO: Implement "one shot" for just processing a frame
 // TODO: Fix find path for onnx
 // TODO: Proxy onnxruntime
 // TODO: Implement a CameraStreamer
